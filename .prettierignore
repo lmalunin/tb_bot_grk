@@ -1,0 +1,33 @@
+# Ignore Tiltfile
+Tiltfile
+
+# Ignore build artifacts
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignore test files
+*.test
+*.spec
+
+# Ignore vendor directory
+vendor/
+
+# Ignore node modules
+node_modules/
+
+# Ignore generated files
+*.generated.*
+*.gen.*
+
+# Ignore YAML files
+*.yaml
+
+# Ignore Helm templates
+helm/**/*.yaml
+
+*.md
