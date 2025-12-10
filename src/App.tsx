@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { sendMessage, getUsers, decodeStartParam, getBackendURL } from "./api";
+import {
+  sendMessage,
+  getUsers,
+  getBackendURL,
+  getUserFromStartParam,
+} from "./api";
 import "./App.scss";
 
 const tg = (window as any).Telegram?.WebApp;
@@ -13,37 +18,81 @@ function App() {
   );
   const [statusMessage, setStatusMessage] = useState("");
   const [backendURL, setBackendURL] = useState("");
+  const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
+    console.log("🚀 App mounted");
+
     if (tg) {
+      console.log("✅ Telegram WebApp object found");
       tg.ready();
       tg.expand();
-      const initDataUnsafe = tg.initDataUnsafe || {};
-      setInitData(initDataUnsafe);
 
-      // Логируем ВСЁ содержимое initDataUnsafe
+      // Получаем initDataUnsafe
+      const initDataUnsafe = tg.initDataUnsafe || {};
       console.log("🔍 Telegram WebApp initDataUnsafe:", initDataUnsafe);
       console.log("🔍 Telegram WebApp initData:", tg.initData);
       console.log("🔍 Telegram WebApp version:", tg.version);
       console.log("🔍 Telegram WebApp platform:", tg.platform);
 
-      // Логируем start_param для отладки
-      const startParam =
-        initDataUnsafe?.start_param ||
-        new URLSearchParams(window.location.search).get("tgWebAppStartParam");
-      console.log("🔍 start_param:", startParam);
+      // Получаем start_param из URL (важнее чем из Telegram)
+      const urlParams = new URLSearchParams(window.location.search);
+      const startParamFromURL = urlParams.get("tgWebAppStartParam");
+      console.log("🔍 tgWebAppStartParam from URL:", startParamFromURL);
 
-      const decoded = decodeStartParam(startParam);
-      console.log("🔍 decoded start_param:", decoded);
+      // Проверяем весь URL
+      console.log("🔍 Current URL:", window.location.href);
+      console.log(
+        "🔍 All URL params:",
+        Object.fromEntries(urlParams.entries())
+      );
 
-      // Получаем backendURL
+      // Получаем backend URL
       const backend = getBackendURL();
       setBackendURL(backend);
-      console.log("🔧 Backend URL для отправки:", backend);
+      console.log("🔧 Final backend URL:", backend);
+
+      // Получаем user_id из start_param
+      const userIdFromStartParam = getUserFromStartParam();
+      console.log("👤 User ID from start_param:", userIdFromStartParam);
+
+      // Устанавливаем user_id (приоритет: start_param > initDataUnsafe)
+      let finalUserId = userIdFromStartParam;
+      if (!finalUserId && initDataUnsafe.user?.id) {
+        finalUserId = initDataUnsafe.user.id;
+        console.log("👤 User ID from initDataUnsafe:", finalUserId);
+      }
+
+      if (finalUserId) {
+        setUserId(finalUserId);
+      }
+
+      // Собираем полные данные пользователя
+      const userData = {
+        user: {
+          id: finalUserId || 0,
+          first_name: initDataUnsafe.user?.first_name || "Пользователь",
+          ...initDataUnsafe.user,
+        },
+        ...initDataUnsafe,
+      };
+
+      setInitData(userData);
+
+      console.log("📊 Final user data:", userData);
+    } else {
+      console.log("⚠️ Not in Telegram environment");
+      // Для тестирования вне Telegram
+      const backend = getBackendURL();
+      setBackendURL(backend);
     }
 
-    // Загружаем пользователей
-    getUsers().then(setUsers);
+    // Загружаем пользователей для отладки
+    getUsers()
+      .then(setUsers)
+      .catch((err) => {
+        console.error("❌ Failed to load users:", err);
+      });
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -55,34 +104,37 @@ function App() {
       return;
     }
 
-    if (!initData.user?.id) {
+    // Используем userId из state или initData
+    const currentUserId = userId || initData.user?.id;
+
+    if (!currentUserId) {
       setStatus("error");
       setStatusMessage(
-        "Не удалось определить ваш ID. Перезапустите приложение."
+        "Не удалось определить ваш ID. Перезапустите приложение через бота командой /start."
       );
-      console.error("❌ User ID не найден в initData:", initData);
+      console.error("❌ User ID not found:", { userId, initData });
       return;
     }
 
-    console.log("🚀 Отправка сообщения:", {
+    console.log("🚀 Sending message with data:", {
       text: messageText,
-      userId: initData.user.id,
+      userId: currentUserId,
       backendURL: backendURL,
     });
 
     setStatus("sending");
-    setStatusMessage("");
+    setStatusMessage("Отправка...");
 
     try {
-      const result = await sendMessage(messageText, initData.user.id);
-      console.log("✅ Результат отправки:", result);
+      const result = await sendMessage(messageText, currentUserId);
+      console.log("✅ Message sent successfully:", result);
       setStatus("sent");
-      setStatusMessage("Сообщение отправлено в Telegram!");
+      setStatusMessage("✅ Сообщение отправлено в Telegram!");
       setMessageText("");
     } catch (error: any) {
-      console.error("❌ Ошибка отправки:", error);
+      console.error("❌ Error sending message:", error);
       setStatus("error");
-      setStatusMessage(error.message || "Ошибка отправки. Проверьте консоль.");
+      setStatusMessage(`❌ Ошибка: ${error.message}`);
     }
   };
 
@@ -90,14 +142,24 @@ function App() {
     <div className="app-container">
       <header className="hero">
         <h1>👋 Привет, {initData.user?.first_name || "друг"}!</h1>
-        <p className="subtitle">Ваш ID: {initData.user?.id || "неизвестен"}</p>
         <p className="subtitle">
-          Backend URL: <code>{backendURL}</code>
+          <strong>Ваш ID:</strong> {userId || initData.user?.id || "неизвестен"}
+        </p>
+        <p className="subtitle">
+          <strong>Backend URL:</strong>{" "}
+          {backendURL ? (
+            <code style={{ wordBreak: "break-all" }}>{backendURL}</code>
+          ) : (
+            "не установлен"
+          )}
         </p>
       </header>
 
       <div className="card">
         <h2>📨 Отправить сообщение в Telegram</h2>
+        <p className="hint">
+          Сообщение будет отправлено боту, который перешлёт его вам в Telegram.
+        </p>
         <form onSubmit={handleSendMessage}>
           <div className="field">
             <textarea
@@ -113,10 +175,15 @@ function App() {
             className="submit"
             disabled={!messageText.trim() || status === "sending"}
           >
-            {status === "sending" ? "Отправляем..." : "Отправить"}
+            {status === "sending" ? "⏳ Отправляем..." : "📤 Отправить"}
           </button>
           {statusMessage && (
-            <div className={`status status-${status}`}>{statusMessage}</div>
+            <div className={`status status-${status}`}>
+              {status === "sending" ? "⏳ " : ""}
+              {status === "sent" ? "✅ " : ""}
+              {status === "error" ? "❌ " : ""}
+              {statusMessage}
+            </div>
           )}
         </form>
       </div>
@@ -134,18 +201,54 @@ function App() {
 
       <div className="debug-info">
         <details>
-          <summary>🔧 Отладочная информация (initDataUnsafe)</summary>
-          <div>
-            <h3>initDataUnsafe:</h3>
-            <pre>{JSON.stringify(initData, null, 2)}</pre>
-            <h3>Backend URL:</h3>
-            <pre>{backendURL}</pre>
-            <h3>URL Parameters:</h3>
+          <summary>🔧 Отладочная информация (нажмите чтобы развернуть)</summary>
+          <div className="debug-content">
+            <h3>Telegram WebApp данные:</h3>
+            <pre>
+              {JSON.stringify(
+                {
+                  initDataUnsafe: initData,
+                  hasTelegram: !!tg,
+                  version: tg?.version,
+                  platform: tg?.platform,
+                  themeParams: tg?.themeParams,
+                },
+                null,
+                2
+              )}
+            </pre>
+
+            <h3>URL параметры:</h3>
             <pre>
               {JSON.stringify(
                 Object.fromEntries(
                   new URLSearchParams(window.location.search).entries()
                 ),
+                null,
+                2
+              )}
+            </pre>
+
+            <h3>Информация о пользователе:</h3>
+            <pre>
+              {JSON.stringify(
+                {
+                  userIdFromState: userId,
+                  userIdFromInitData: initData.user?.id,
+                  userName: initData.user?.first_name,
+                },
+                null,
+                2
+              )}
+            </pre>
+
+            <h3>Backend информация:</h3>
+            <pre>
+              {JSON.stringify(
+                {
+                  backendURL: backendURL,
+                  canSend: !!(userId || initData.user?.id),
+                },
                 null,
                 2
               )}

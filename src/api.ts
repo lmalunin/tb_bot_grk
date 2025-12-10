@@ -2,19 +2,8 @@ import axios from "axios";
 
 export type ClientConfig = {
   backend?: string;
+  user_id?: number;
 };
-
-const BASE64_URL_PATTERN = /-/g;
-const BASE64_URL_SLASH_PATTERN = /_/g;
-
-function decodeBase64Url(value: string): string {
-  const normalized = value
-    .replace(BASE64_URL_PATTERN, "+")
-    .replace(BASE64_URL_SLASH_PATTERN, "/");
-  const paddingLength = (4 - (normalized.length % 4)) % 4;
-  const padded = normalized + "=".repeat(paddingLength);
-  return atob(padded);
-}
 
 export function decodeStartParam(value?: string | null): ClientConfig {
   if (!value) {
@@ -22,60 +11,106 @@ export function decodeStartParam(value?: string | null): ClientConfig {
     return {};
   }
 
+  console.log("🔍 Raw start_param value:", value);
+
   try {
-    console.log("🔍 Decoding start_param:", value);
-    const decoded = decodeBase64Url(value);
-    console.log("🔍 Decoded string:", decoded);
+    // Пробуем декодировать base64 (Web Safe Base64)
+    // Заменяем URL-безопасные символы обратно
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+
+    // Добавляем padding если нужно
+    const padding = base64.length % 4;
+    const paddedBase64 = padding ? base64 + "=".repeat(4 - padding) : base64;
+
+    console.log("🔍 Base64 after fixing:", paddedBase64);
+
+    // Декодируем base64
+    const decodedString = atob(paddedBase64);
+    console.log("🔍 Decoded string:", decodedString);
 
     try {
-      const raw = JSON.parse(decoded) as ClientConfig | string;
-      if (typeof raw === "string") {
-        console.log("🔍 start_param is plain string (backend URL):", raw);
-        return { backend: raw };
+      // Пробуем распарсить как JSON
+      const parsed = JSON.parse(decodedString);
+      console.log("🔍 Parsed JSON:", parsed);
+
+      const config: ClientConfig = {};
+
+      // Получаем backend URL
+      if (typeof parsed.backend === "string") {
+        config.backend = parsed.backend;
+      } else if (typeof parsed.b === "string") {
+        config.backend = parsed.b;
       }
-      if (typeof raw?.backend === "string") {
-        console.log("🔍 start_param contains backend:", raw.backend);
-        return { backend: raw.backend };
+
+      // Получаем user_id
+      if (typeof parsed.user_id === "number") {
+        config.user_id = parsed.user_id;
+      } else if (typeof parsed.uid === "number") {
+        config.user_id = parsed.uid;
+      } else if (typeof parsed.u === "number") {
+        config.user_id = parsed.u;
       }
-      if ("b" in (raw as Record<string, unknown>)) {
-        const backendValue = (raw as Record<string, unknown>).b;
-        if (typeof backendValue === "string") {
-          console.log("🔍 start_param contains 'b' field:", backendValue);
-          return { backend: backendValue };
-        }
+
+      console.log("🔍 Final config:", config);
+      return config;
+    } catch (jsonError) {
+      console.log("🔍 Not JSON, treating as plain URL:", decodedString);
+      // Если не JSON, считаем что это просто URL
+      if (decodedString.startsWith("http")) {
+        return { backend: decodedString };
       }
-      console.log("🔍 start_param JSON parsed but no backend found:", raw);
-    } catch {
-      console.log("🔍 start_param is not JSON, treating as string:", decoded);
-      return { backend: decoded };
+      return {};
     }
   } catch (error) {
     console.error("❌ Failed to decode start_param:", error);
+    return {};
   }
-
-  return {};
 }
 
 export function getBackendURL(): string {
   const tg = (window as any).Telegram?.WebApp;
-  const startParam =
-    tg?.initDataUnsafe?.start_param ||
-    new URLSearchParams(window.location.search).get("tgWebAppStartParam");
 
-  console.log(
-    "🔍 Raw start_param from Telegram:",
-    tg?.initDataUnsafe?.start_param
+  // Сначала пробуем из start_param (из Telegram или URL)
+  const startParamFromTG = tg?.initDataUnsafe?.start_param;
+  const startParamFromURL = new URLSearchParams(window.location.search).get(
+    "tgWebAppStartParam"
   );
-  console.log(
-    "🔍 Raw start_param from URL:",
-    new URLSearchParams(window.location.search).get("tgWebAppStartParam")
+  const startParam = startParamFromTG || startParamFromURL;
+
+  console.log("🔍 Start param sources:", {
+    fromTG: startParamFromTG,
+    fromURL: startParamFromURL,
+    using: startParam,
+  });
+
+  if (startParam) {
+    const config = decodeStartParam(startParam);
+    console.log("🔍 Config from decodeStartParam:", config);
+
+    if (config.backend) {
+      console.log("🔧 Using backend from start_param:", config.backend);
+      return config.backend;
+    }
+  }
+
+  // Fallback для разработки
+  const fallback = "http://localhost:8080";
+  console.log("⚠️ Using fallback backend URL:", fallback);
+  return fallback;
+}
+
+export function getUserFromStartParam() {
+  const tg = (window as any).Telegram?.WebApp;
+  const startParamFromTG = tg?.initDataUnsafe?.start_param;
+  const startParamFromURL = new URLSearchParams(window.location.search).get(
+    "tgWebAppStartParam"
   );
+  const startParam = startParamFromTG || startParamFromURL;
+
+  if (!startParam) return null;
 
   const config = decodeStartParam(startParam);
-  const backend = config.backend || "http://localhost:8080";
-
-  console.log("🔧 Using backend URL:", backend);
-  return backend;
+  return config.user_id || null;
 }
 
 export async function sendMessage(text: string, userId: number) {
