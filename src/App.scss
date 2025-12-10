@@ -6,8 +6,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--tg-bg, #f5f5f5);
-  color: var(--tg-text, #000);
+  background: #f5f5f5;
+  color: #000;
   min-height: 100vh;
   padding: 16px;
 }
@@ -21,7 +21,7 @@ body {
   text-align: center;
   margin-bottom: 24px;
   padding: 24px;
-  background: var(--tg-bg, #fff);
+  background: #fff;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
@@ -31,13 +31,21 @@ body {
   }
 
   .subtitle {
-    color: var(--tg-muted, #666);
+    color: #666;
     font-size: 0.9rem;
+    margin: 4px 0;
+
+    code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
   }
 }
 
 .card {
-  background: var(--tg-bg, #fff);
+  background: #fff;
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 16px;
@@ -46,7 +54,7 @@ body {
   h2 {
     font-size: 1.3rem;
     margin-bottom: 16px;
-    color: var(--tg-text, #000);
+    color: #000;
   }
 }
 
@@ -56,17 +64,17 @@ body {
   textarea {
     width: 100%;
     padding: 12px;
-    border: 1px solid var(--tg-hint, #ddd);
+    border: 1px solid #ddd;
     border-radius: 8px;
     font-family: inherit;
     font-size: 1rem;
     resize: vertical;
-    background: var(--tg-bg, #fff);
-    color: var(--tg-text, #000);
+    background: #fff;
+    color: #000;
 
     &:focus {
       outline: none;
-      border-color: var(--tg-accent, #007aff);
+      border-color: #007aff;
     }
 
     &:disabled {
@@ -79,8 +87,8 @@ body {
 .submit {
   width: 100%;
   padding: 14px;
-  background: var(--tg-accent, #007aff);
-  color: var(--tg-accent-text, #fff);
+  background: #007aff;
+  color: #fff;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
@@ -124,7 +132,7 @@ body {
 .users-list {
   max-height: 300px;
   overflow-y: auto;
-  background: var(--tg-secondary-bg, #f8f8f8);
+  background: #f8f8f8;
   border-radius: 8px;
   padding: 12px;
 
@@ -140,7 +148,7 @@ body {
   font-size: 0.8rem;
 
   details {
-    background: var(--tg-secondary-bg, #f8f8f8);
+    background: #f8f8f8;
     border-radius: 8px;
     padding: 12px;
 
@@ -153,10 +161,12 @@ body {
     pre {
       max-height: 200px;
       overflow-y: auto;
-      background: var(--tg-bg, #fff);
+      background: #fff;
       padding: 12px;
       border-radius: 8px;
       font-size: 0.7rem;
+      white-space: pre-wrap;
+      word-break: break-all;
     }
   }
 }

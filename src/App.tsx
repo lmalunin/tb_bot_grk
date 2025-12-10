@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { sendMessage, getUsers, decodeStartParam } from "./api";
+import { sendMessage, getUsers, decodeStartParam, getBackendURL } from "./api";
 import "./App.scss";
 
 const tg = (window as any).Telegram?.WebApp;
@@ -12,19 +12,34 @@ function App() {
     "idle"
   );
   const [statusMessage, setStatusMessage] = useState("");
+  const [backendURL, setBackendURL] = useState("");
 
   useEffect(() => {
     if (tg) {
       tg.ready();
       tg.expand();
-      setInitData(tg.initDataUnsafe || {});
+      const initDataUnsafe = tg.initDataUnsafe || {};
+      setInitData(initDataUnsafe);
+
+      // Логируем ВСЁ содержимое initDataUnsafe
+      console.log("🔍 Telegram WebApp initDataUnsafe:", initDataUnsafe);
+      console.log("🔍 Telegram WebApp initData:", tg.initData);
+      console.log("🔍 Telegram WebApp version:", tg.version);
+      console.log("🔍 Telegram WebApp platform:", tg.platform);
 
       // Логируем start_param для отладки
       const startParam =
-        tg.initDataUnsafe?.start_param ||
+        initDataUnsafe?.start_param ||
         new URLSearchParams(window.location.search).get("tgWebAppStartParam");
-      console.log("start_param:", startParam);
-      console.log("decoded:", decodeStartParam(startParam));
+      console.log("🔍 start_param:", startParam);
+
+      const decoded = decodeStartParam(startParam);
+      console.log("🔍 decoded start_param:", decoded);
+
+      // Получаем backendURL
+      const backend = getBackendURL();
+      setBackendURL(backend);
+      console.log("🔧 Backend URL для отправки:", backend);
     }
 
     // Загружаем пользователей
@@ -33,19 +48,41 @@ function App() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim() || !initData.user?.id) return;
+
+    if (!messageText.trim()) {
+      setStatus("error");
+      setStatusMessage("Введите текст сообщения");
+      return;
+    }
+
+    if (!initData.user?.id) {
+      setStatus("error");
+      setStatusMessage(
+        "Не удалось определить ваш ID. Перезапустите приложение."
+      );
+      console.error("❌ User ID не найден в initData:", initData);
+      return;
+    }
+
+    console.log("🚀 Отправка сообщения:", {
+      text: messageText,
+      userId: initData.user.id,
+      backendURL: backendURL,
+    });
 
     setStatus("sending");
     setStatusMessage("");
 
     try {
-      await sendMessage(messageText, initData.user.id);
+      const result = await sendMessage(messageText, initData.user.id);
+      console.log("✅ Результат отправки:", result);
       setStatus("sent");
       setStatusMessage("Сообщение отправлено в Telegram!");
       setMessageText("");
     } catch (error: any) {
+      console.error("❌ Ошибка отправки:", error);
       setStatus("error");
-      setStatusMessage(error.message || "Ошибка отправки");
+      setStatusMessage(error.message || "Ошибка отправки. Проверьте консоль.");
     }
   };
 
@@ -53,7 +90,10 @@ function App() {
     <div className="app-container">
       <header className="hero">
         <h1>👋 Привет, {initData.user?.first_name || "друг"}!</h1>
-        <p className="subtitle">Ваш ID: {initData.user?.id}</p>
+        <p className="subtitle">Ваш ID: {initData.user?.id || "неизвестен"}</p>
+        <p className="subtitle">
+          Backend URL: <code>{backendURL}</code>
+        </p>
       </header>
 
       <div className="card">
@@ -94,8 +134,23 @@ function App() {
 
       <div className="debug-info">
         <details>
-          <summary>🔧 Отладочная информация</summary>
-          <pre>{JSON.stringify(initData, null, 2)}</pre>
+          <summary>🔧 Отладочная информация (initDataUnsafe)</summary>
+          <div>
+            <h3>initDataUnsafe:</h3>
+            <pre>{JSON.stringify(initData, null, 2)}</pre>
+            <h3>Backend URL:</h3>
+            <pre>{backendURL}</pre>
+            <h3>URL Parameters:</h3>
+            <pre>
+              {JSON.stringify(
+                Object.fromEntries(
+                  new URLSearchParams(window.location.search).entries()
+                ),
+                null,
+                2
+              )}
+            </pre>
+          </div>
         </details>
       </div>
     </div>
