@@ -125,16 +125,31 @@ export function getUserFromStartParam(): number | null {
   const startParamFromURL = new URLSearchParams(window.location.search).get(
     "tgWebAppStartParam"
   );
-  const startParam = startParamFromTG || startParamFromURL;
+
+  // ВАЖНО: URL параметр имеет приоритет над Telegram
+  const startParam = startParamFromURL || startParamFromTG;
 
   if (!startParam) {
-    addDebugLog("⚠️ No start_param found for user ID extraction");
+    addDebugLog("⚠️ No start_param found anywhere");
     return null;
   }
 
+  addDebugLog(`🔍 getUserFromStartParam() start_param: ${startParam}`);
+  addDebugLog(
+    `🔍 Sources - TG: ${startParamFromTG}, URL: ${startParamFromURL}, Using: ${
+      startParamFromURL ? "URL" : "TG"
+    }`
+  );
+
   const config = decodeStartParam(startParam);
   const userId = config.user_id || null;
-  addDebugLog(`🔍 Extracted user_id from start_param: ${userId}`);
+
+  if (userId) {
+    addDebugLog(`✅ getUserFromStartParam() extracted user_id: ${userId}`);
+  } else {
+    addDebugLog("⚠️ getUserFromStartParam() could not extract user_id");
+  }
+
   return userId;
 }
 

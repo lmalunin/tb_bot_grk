@@ -36,6 +36,23 @@ function App() {
 
     addDebugLog("🚀 App mounted");
 
+    // ВАЖНО: Сначала получаем user_id из start_param (это главный источник)
+    // getUserFromStartParam() проверяет и URL параметры, и Telegram WebApp
+    const userIdFromStartParam = getUserFromStartParam();
+    addDebugLog(`👤 getUserFromStartParam() returned: ${userIdFromStartParam}`);
+
+    if (userIdFromStartParam) {
+      setUserId(userIdFromStartParam);
+      addDebugLog(`✅ Set userId state to: ${userIdFromStartParam}`);
+    } else {
+      addDebugLog("⚠️ getUserFromStartParam() returned null");
+    }
+
+    // Получаем backend URL
+    const backend = getBackendURL();
+    setBackendURL(backend);
+    addDebugLog(`🔧 Final backend URL: ${backend}`);
+
     if (tg) {
       addDebugLog("✅ Telegram WebApp object found");
       tg.ready();
@@ -52,56 +69,20 @@ function App() {
       addDebugLog(`🔍 Telegram WebApp version: ${tg.version}`);
       addDebugLog(`🔍 Telegram WebApp platform: ${tg.platform}`);
 
-      // Получаем start_param из URL (важнее чем из Telegram)
-      const urlParams = new URLSearchParams(window.location.search);
-      const startParamFromURL = urlParams.get("tgWebAppStartParam");
-      addDebugLog(`🔍 tgWebAppStartParam from URL: ${startParamFromURL}`);
-
-      // Проверяем весь URL
-      addDebugLog(`🔍 Current URL: ${window.location.href}`);
-      addDebugLog(
-        `🔍 All URL params: ${JSON.stringify(
-          Object.fromEntries(urlParams.entries())
-        )}`
-      );
-
-      // Получаем backend URL
-      const backend = getBackendURL();
-      setBackendURL(backend);
-      addDebugLog(`🔧 Final backend URL: ${backend}`);
-
-      // Получаем user_id из start_param
-      const userIdFromStartParam = getUserFromStartParam();
-      addDebugLog(`👤 User ID from start_param: ${userIdFromStartParam}`);
-
-      // Устанавливаем user_id (приоритет: start_param > URL param > initDataUnsafe)
-      let finalUserId = userIdFromStartParam;
-
-      // Если нет в start_param, проверяем URL параметр user_id
-      if (!finalUserId) {
-        const urlUserId = urlParams.get("user_id");
-        if (urlUserId) {
-          finalUserId = parseInt(urlUserId, 10);
-          addDebugLog(`👤 User ID from URL parameter: ${finalUserId}`);
-        }
-      }
-
-      // Если все еще нет, пробуем initDataUnsafe
-      if (!finalUserId && initDataUnsafe.user?.id) {
-        finalUserId = initDataUnsafe.user.id;
-        addDebugLog(`👤 User ID from initDataUnsafe: ${finalUserId}`);
-      }
-
-      if (finalUserId) {
-        setUserId(finalUserId);
-      } else {
-        addDebugLog("⚠️ User ID not found in any source");
+      // Если user_id не был установлен из start_param, пробуем из initDataUnsafe
+      // (это резервный вариант)
+      if (!userIdFromStartParam && initDataUnsafe.user?.id) {
+        const fallbackUserId = initDataUnsafe.user.id;
+        setUserId(fallbackUserId);
+        addDebugLog(
+          `👤 Fallback user ID from initDataUnsafe: ${fallbackUserId}`
+        );
       }
 
       // Собираем полные данные пользователя
       const userData = {
         user: {
-          id: finalUserId || 0,
+          id: userIdFromStartParam || initDataUnsafe.user?.id || 0,
           first_name: initDataUnsafe.user?.first_name || "Пользователь",
           ...initDataUnsafe.user,
         },
@@ -112,21 +93,30 @@ function App() {
       addDebugLog(`📊 Final user data: ${JSON.stringify(userData, null, 2)}`);
     } else {
       addDebugLog("⚠️ Not in Telegram environment");
-      // Для тестирования вне Telegram
-      const backend = getBackendURL();
-      setBackendURL(backend);
-      addDebugLog(`🔧 Using fallback backend URL: ${backend}`);
 
-      // Пробуем получить user_id из URL параметров
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlUserId = urlParams.get("user_id");
-      if (urlUserId) {
-        const finalUserId = parseInt(urlUserId, 10);
-        setUserId(finalUserId);
-        addDebugLog(
-          `👤 User ID from URL parameter (non-Telegram): ${finalUserId}`
-        );
-      }
+      // Если в не-Telegram окружении и нет user_id, создаем минимальные данные
+      const userData = {
+        user: {
+          id: userIdFromStartParam || 0,
+          first_name: "Пользователь",
+        },
+      };
+      setInitData(userData);
+      addDebugLog(
+        `📊 Final user data (non-Telegram): ${JSON.stringify(
+          userData,
+          null,
+          2
+        )}`
+      );
+    }
+
+    // Финальная проверка
+    const currentUserId = userIdFromStartParam || initData.user?.id;
+    if (!currentUserId) {
+      addDebugLog("⚠️ User ID not found in any source");
+    } else {
+      addDebugLog(`🎯 Final user ID for this session: ${currentUserId}`);
     }
 
     // Загружаем пользователей для отладки
@@ -159,7 +149,6 @@ function App() {
         "Не удалось определить ваш ID. Перезапустите приложение через бота командой /start."
       );
       addDebugLog("❌ User ID not found for sending message");
-      console.error("❌ User ID not found:", { userId, initData });
       return;
     }
 
@@ -199,12 +188,15 @@ function App() {
     }
   };
 
+  // Получаем актуальный user_id для отображения
+  const displayUserId = userId || initData.user?.id;
+
   return (
     <div className="app-container">
       <header className="hero">
         <h1>👋 Привет, {initData.user?.first_name || "друг"}!</h1>
         <p className="subtitle">
-          <strong>Ваш ID:</strong> {userId || initData.user?.id || "неизвестен"}
+          <strong>Ваш ID:</strong> {displayUserId || "неизвестен"}
         </p>
         <p className="subtitle">
           <strong>Backend URL:</strong>{" "}
@@ -331,6 +323,22 @@ function App() {
               </div>
 
               <div className="debug-section">
+                <h3>Текущие состояния:</h3>
+                <pre>
+                  {JSON.stringify(
+                    {
+                      userIdFromState: userId,
+                      displayUserId: displayUserId,
+                      initDataUserId: initData.user?.id,
+                      canSend: !!displayUserId,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+
+              <div className="debug-section">
                 <h3>Telegram WebApp данные:</h3>
                 <pre>
                   {JSON.stringify(
@@ -361,27 +369,12 @@ function App() {
               </div>
 
               <div className="debug-section">
-                <h3>Информация о пользователе:</h3>
-                <pre>
-                  {JSON.stringify(
-                    {
-                      userIdFromState: userId,
-                      userIdFromInitData: initData.user?.id,
-                      userName: initData.user?.first_name,
-                    },
-                    null,
-                    2
-                  )}
-                </pre>
-              </div>
-
-              <div className="debug-section">
                 <h3>Backend информация:</h3>
                 <pre>
                   {JSON.stringify(
                     {
                       backendURL: backendURL,
-                      canSend: !!(userId || initData.user?.id),
+                      usersCount: users.length,
                     },
                     null,
                     2
