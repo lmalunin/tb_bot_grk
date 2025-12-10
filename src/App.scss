@@ -1,65 +1,147 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #000;
-  min-height: 100vh;
-  padding: 16px;
+// Основные переменные
+:root {
+  --tg-bg: #ffffff;
+  --tg-text: #000000;
+  --tg-muted: #707579;
+  --tg-accent: #3390ec;
+  --tg-accent-text: #ffffff;
 }
 
 .app-container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, sans-serif;
+  background: var(--tg-bg);
+  color: var(--tg-text);
+  min-height: 100vh;
 }
 
 .hero {
   text-align: center;
-  margin-bottom: 24px;
-  padding: 24px;
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 30px 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 30px;
 
   h1 {
-    font-size: 1.8rem;
-    margin-bottom: 8px;
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: var(--tg-text);
   }
 
   .subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin: 4px 0;
+    font-size: 14px;
+    color: var(--tg-muted);
+    margin: 5px 0;
 
     code {
-      background: #f0f0f0;
+      background: #f5f5f5;
       padding: 2px 6px;
       border-radius: 4px;
       font-family: monospace;
+      font-size: 12px;
     }
   }
 }
 
 .card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 
   h2 {
-    font-size: 1.3rem;
-    margin-bottom: 16px;
-    color: #000;
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--tg-text);
+  }
+
+  .hint {
+    font-size: 14px;
+    color: var(--tg-muted);
+    margin-bottom: 20px;
+    line-height: 1.4;
+  }
+}
+
+.users-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.refresh-button {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #f5f5f5;
+    transform: rotate(90deg);
+  }
+
+  &:active {
+    transform: rotate(180deg);
+  }
+}
+
+.no-users {
+  text-align: center;
+  padding: 30px;
+  color: var(--tg-muted);
+
+  .hint {
+    font-size: 13px;
+    margin-top: 10px;
+  }
+}
+
+.users-table {
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+
+    th {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 2px solid #e0e0e0;
+      font-weight: 600;
+      color: var(--tg-text);
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    tr:hover {
+      background: #f9f9f9;
+    }
   }
 }
 
 .field {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   textarea {
     width: 100%;
@@ -67,14 +149,15 @@ body {
     border: 1px solid #ddd;
     border-radius: 8px;
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 14px;
     resize: vertical;
-    background: #fff;
-    color: #000;
+    transition: border-color 0.2s;
+    background: var(--tg-bg);
+    color: var(--tg-text);
 
     &:focus {
       outline: none;
-      border-color: #007aff;
+      border-color: var(--tg-accent);
     }
 
     &:disabled {
@@ -87,14 +170,14 @@ body {
 .submit {
   width: 100%;
   padding: 14px;
-  background: #007aff;
-  color: #fff;
+  background: var(--tg-accent);
+  color: var(--tg-accent-text);
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: background-color 0.2s;
 
   &:hover:not(:disabled) {
     opacity: 0.9;
@@ -107,124 +190,191 @@ body {
 }
 
 .status {
-  margin-top: 12px;
+  margin-top: 15px;
   padding: 10px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border-radius: 6px;
+  font-size: 14px;
   text-align: center;
 
+  &.status-sending {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+  }
+
   &.status-sent {
-    background: rgba(52, 199, 89, 0.1);
-    color: #34c759;
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
   }
 
   &.status-error {
-    background: rgba(255, 59, 48, 0.1);
-    color: #ff3b30;
-  }
-
-  &.status-sending {
-    background: rgba(0, 122, 255, 0.1);
-    color: #007aff;
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
   }
 }
 
-.users-list {
-  max-height: 300px;
-  overflow-y: auto;
-  background: #f8f8f8;
-  border-radius: 8px;
-  padding: 12px;
+// Стили для панели отладки
+.debug-controls {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  flex-wrap: wrap;
 
-  pre {
-    font-size: 0.8rem;
-    white-space: pre-wrap;
-    word-break: break-all;
+  button {
+    padding: 8px 16px;
+    background: var(--tg-accent);
+    color: var(--tg-accent-text);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &.debug-toggle {
+      background: #6c757d;
+    }
+
+    &.debug-clear {
+      background: #dc3545;
+    }
+
+    &.debug-refresh {
+      background: #28a745;
+    }
   }
 }
 
 .debug-info {
-  margin-top: 16px;
-  font-size: 0.8rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  margin-top: 20px;
+  overflow: hidden;
 
-  details {
-    background: #f8f8f8;
-    border-radius: 8px;
-    padding: 12px;
+  summary {
+    padding: 15px;
+    background: #e9ecef;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    outline: none;
+    border-bottom: 1px solid transparent;
 
-    summary {
-      cursor: pointer;
-      font-weight: 600;
-      margin-bottom: 8px;
+    &:hover {
+      background: #dee2e6;
     }
 
-    pre {
-      max-height: 200px;
-      overflow-y: auto;
-      background: #fff;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 0.7rem;
-      white-space: pre-wrap;
-      word-break: break-all;
+    &::-webkit-details-marker {
+      display: none;
     }
+  }
+
+  details[open] summary {
+    border-bottom: 1px solid #dee2e6;
   }
 }
 
 .debug-content {
+  padding: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.debug-section {
+  margin-bottom: 25px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
   h3 {
-    margin-top: 16px;
-    margin-bottom: 8px;
-    font-size: 14px;
-    color: #666;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #495057;
   }
 
   pre {
-    background: #f5f5f5;
-    border: 1px solid #ddd;
+    background: #212529;
+    color: #e9ecef;
+    padding: 15px;
     border-radius: 6px;
-    padding: 12px;
+    overflow-x: auto;
     font-size: 12px;
-    max-height: 200px;
-    overflow-y: auto;
+    line-height: 1.4;
+    margin: 0;
     white-space: pre-wrap;
-    word-break: break-all;
+    word-wrap: break-word;
   }
 }
 
-.hint {
-  font-size: 0.9rem;
-  color: #666;
-  margin-bottom: 16px;
+.debug-logs {
+  background: #212529;
+  color: #e9ecef;
+  padding: 15px;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
-code {
-  background: #f0f0f0;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: "Courier New", monospace;
-  font-size: 0.9em;
+.debug-log-line {
+  padding: 2px 0;
+  border-bottom: 1px solid #343a40;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
-.app-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 16px;
+// Адаптивность
+@media (max-width: 768px) {
+  .app-container {
+    padding: 10px;
+  }
 
   .hero {
-    margin-bottom: 24px;
+    padding: 20px 0;
 
     h1 {
-      margin-bottom: 12px;
+      font-size: 20px;
     }
+  }
 
-    .subtitle {
-      margin: 8px 0;
-      font-size: 14px;
+  .card {
+    padding: 15px;
+  }
 
-      strong {
-        color: #333;
-      }
+  .users-table table {
+    font-size: 12px;
+
+    th,
+    td {
+      padding: 8px 6px;
     }
+  }
+
+  .debug-controls {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+    }
+  }
+
+  .debug-content {
+    padding: 10px;
   }
 }

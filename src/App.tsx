@@ -4,6 +4,7 @@ import {
   getUsers,
   getBackendURL,
   getUserFromStartParam,
+  setDebugLogCallback,
 } from "./api";
 import "./App.scss";
 
@@ -19,52 +20,82 @@ function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [backendURL, setBackendURL] = useState("");
   const [userId, setUserId] = useState<number | null>(null);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Функция для добавления логов
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `[${timestamp}] ${message}`;
+    setDebugLogs((prev) => [...prev.slice(-50), logMessage]); // Храним последние 50 логов
+  };
 
   useEffect(() => {
-    console.log("🚀 App mounted");
+    // Устанавливаем callback для логирования в api.ts
+    setDebugLogCallback(addDebugLog);
+
+    addDebugLog("🚀 App mounted");
 
     if (tg) {
-      console.log("✅ Telegram WebApp object found");
+      addDebugLog("✅ Telegram WebApp object found");
       tg.ready();
       tg.expand();
 
-      // Получаем initDataUnsafe
       const initDataUnsafe = tg.initDataUnsafe || {};
-      console.log("🔍 Telegram WebApp initDataUnsafe:", initDataUnsafe);
-      console.log("🔍 Telegram WebApp initData:", tg.initData);
-      console.log("🔍 Telegram WebApp version:", tg.version);
-      console.log("🔍 Telegram WebApp platform:", tg.platform);
+      addDebugLog(
+        `🔍 Telegram WebApp initDataUnsafe: ${JSON.stringify(
+          initDataUnsafe,
+          null,
+          2
+        )}`
+      );
+      addDebugLog(`🔍 Telegram WebApp version: ${tg.version}`);
+      addDebugLog(`🔍 Telegram WebApp platform: ${tg.platform}`);
 
       // Получаем start_param из URL (важнее чем из Telegram)
       const urlParams = new URLSearchParams(window.location.search);
       const startParamFromURL = urlParams.get("tgWebAppStartParam");
-      console.log("🔍 tgWebAppStartParam from URL:", startParamFromURL);
+      addDebugLog(`🔍 tgWebAppStartParam from URL: ${startParamFromURL}`);
 
       // Проверяем весь URL
-      console.log("🔍 Current URL:", window.location.href);
-      console.log(
-        "🔍 All URL params:",
-        Object.fromEntries(urlParams.entries())
+      addDebugLog(`🔍 Current URL: ${window.location.href}`);
+      addDebugLog(
+        `🔍 All URL params: ${JSON.stringify(
+          Object.fromEntries(urlParams.entries())
+        )}`
       );
 
       // Получаем backend URL
       const backend = getBackendURL();
       setBackendURL(backend);
-      console.log("🔧 Final backend URL:", backend);
+      addDebugLog(`🔧 Final backend URL: ${backend}`);
 
       // Получаем user_id из start_param
       const userIdFromStartParam = getUserFromStartParam();
-      console.log("👤 User ID from start_param:", userIdFromStartParam);
+      addDebugLog(`👤 User ID from start_param: ${userIdFromStartParam}`);
 
-      // Устанавливаем user_id (приоритет: start_param > initDataUnsafe)
+      // Устанавливаем user_id (приоритет: start_param > URL param > initDataUnsafe)
       let finalUserId = userIdFromStartParam;
+
+      // Если нет в start_param, проверяем URL параметр user_id
+      if (!finalUserId) {
+        const urlUserId = urlParams.get("user_id");
+        if (urlUserId) {
+          finalUserId = parseInt(urlUserId, 10);
+          addDebugLog(`👤 User ID from URL parameter: ${finalUserId}`);
+        }
+      }
+
+      // Если все еще нет, пробуем initDataUnsafe
       if (!finalUserId && initDataUnsafe.user?.id) {
         finalUserId = initDataUnsafe.user.id;
-        console.log("👤 User ID from initDataUnsafe:", finalUserId);
+        addDebugLog(`👤 User ID from initDataUnsafe: ${finalUserId}`);
       }
 
       if (finalUserId) {
         setUserId(finalUserId);
+      } else {
+        addDebugLog("⚠️ User ID not found in any source");
       }
 
       // Собираем полные данные пользователя
@@ -78,20 +109,34 @@ function App() {
       };
 
       setInitData(userData);
-
-      console.log("📊 Final user data:", userData);
+      addDebugLog(`📊 Final user data: ${JSON.stringify(userData, null, 2)}`);
     } else {
-      console.log("⚠️ Not in Telegram environment");
+      addDebugLog("⚠️ Not in Telegram environment");
       // Для тестирования вне Telegram
       const backend = getBackendURL();
       setBackendURL(backend);
+      addDebugLog(`🔧 Using fallback backend URL: ${backend}`);
+
+      // Пробуем получить user_id из URL параметров
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUserId = urlParams.get("user_id");
+      if (urlUserId) {
+        const finalUserId = parseInt(urlUserId, 10);
+        setUserId(finalUserId);
+        addDebugLog(
+          `👤 User ID from URL parameter (non-Telegram): ${finalUserId}`
+        );
+      }
     }
 
     // Загружаем пользователей для отладки
     getUsers()
-      .then(setUsers)
+      .then((users) => {
+        setUsers(users);
+        addDebugLog(`✅ Loaded ${users.length} users from database`);
+      })
       .catch((err) => {
-        console.error("❌ Failed to load users:", err);
+        addDebugLog(`❌ Failed to load users: ${err.message}`);
       });
   }, []);
 
@@ -101,6 +146,7 @@ function App() {
     if (!messageText.trim()) {
       setStatus("error");
       setStatusMessage("Введите текст сообщения");
+      addDebugLog("❌ Empty message text in send attempt");
       return;
     }
 
@@ -112,29 +158,44 @@ function App() {
       setStatusMessage(
         "Не удалось определить ваш ID. Перезапустите приложение через бота командой /start."
       );
+      addDebugLog("❌ User ID not found for sending message");
       console.error("❌ User ID not found:", { userId, initData });
       return;
     }
 
-    console.log("🚀 Sending message with data:", {
-      text: messageText,
-      userId: currentUserId,
-      backendURL: backendURL,
-    });
+    addDebugLog(
+      `🚀 Sending message with data: ${JSON.stringify({
+        text: messageText,
+        userId: currentUserId,
+        backendURL: backendURL,
+      })}`
+    );
 
     setStatus("sending");
     setStatusMessage("Отправка...");
 
     try {
       const result = await sendMessage(messageText, currentUserId);
-      console.log("✅ Message sent successfully:", result);
+      addDebugLog(`✅ Message sent successfully: ${JSON.stringify(result)}`);
       setStatus("sent");
       setStatusMessage("✅ Сообщение отправлено в Telegram!");
       setMessageText("");
     } catch (error: any) {
-      console.error("❌ Error sending message:", error);
+      addDebugLog(`❌ Error sending message: ${error.message}`);
       setStatus("error");
       setStatusMessage(`❌ Ошибка: ${error.message}`);
+    }
+  };
+
+  // Функция для перезагрузки пользователей
+  const handleRefreshUsers = async () => {
+    addDebugLog("🔄 Manually refreshing users list");
+    try {
+      const users = await getUsers();
+      setUsers(users);
+      addDebugLog(`✅ Refreshed users list: ${users.length} users`);
+    } catch (error: any) {
+      addDebugLog(`❌ Failed to refresh users: ${error.message}`);
     }
   };
 
@@ -189,73 +250,148 @@ function App() {
       </div>
 
       <div className="card">
-        <h2>📊 Пользователи в базе данных ({users.length})</h2>
+        <div className="users-header">
+          <h2>📊 Пользователи в базе данных ({users.length})</h2>
+          <button
+            onClick={handleRefreshUsers}
+            className="refresh-button"
+            title="Обновить список пользователей"
+          >
+            🔄
+          </button>
+        </div>
         <div className="users-list">
           {users.length === 0 ? (
-            <p>Нет пользователей</p>
+            <div className="no-users">
+              <p>Нет пользователей в базе данных</p>
+              <p className="hint">
+                Попробуйте нажать /start в боте для регистрации
+              </p>
+            </div>
           ) : (
-            <pre>{JSON.stringify(users, null, 2)}</pre>
+            <div className="users-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Фамилия</th>
+                    <th>Username</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.id}</td>
+                      <td>{user.first_name || "-"}</td>
+                      <td>{user.last_name || "-"}</td>
+                      <td>{user.username ? `@${user.username}` : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
 
-      <div className="debug-info">
-        <details>
-          <summary>🔧 Отладочная информация (нажмите чтобы развернуть)</summary>
-          <div className="debug-content">
-            <h3>Telegram WebApp данные:</h3>
-            <pre>
-              {JSON.stringify(
-                {
-                  initDataUnsafe: initData,
-                  hasTelegram: !!tg,
-                  version: tg?.version,
-                  platform: tg?.platform,
-                  themeParams: tg?.themeParams,
-                },
-                null,
-                2
-              )}
-            </pre>
-
-            <h3>URL параметры:</h3>
-            <pre>
-              {JSON.stringify(
-                Object.fromEntries(
-                  new URLSearchParams(window.location.search).entries()
-                ),
-                null,
-                2
-              )}
-            </pre>
-
-            <h3>Информация о пользователе:</h3>
-            <pre>
-              {JSON.stringify(
-                {
-                  userIdFromState: userId,
-                  userIdFromInitData: initData.user?.id,
-                  userName: initData.user?.first_name,
-                },
-                null,
-                2
-              )}
-            </pre>
-
-            <h3>Backend информация:</h3>
-            <pre>
-              {JSON.stringify(
-                {
-                  backendURL: backendURL,
-                  canSend: !!(userId || initData.user?.id),
-                },
-                null,
-                2
-              )}
-            </pre>
-          </div>
-        </details>
+      <div className="debug-controls">
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="debug-toggle"
+        >
+          {showDebug ? "🔽 Скрыть логи" : "🔼 Показать логи"}
+        </button>
+        <button onClick={() => setDebugLogs([])} className="debug-clear">
+          Очистить логи
+        </button>
+        <button onClick={handleRefreshUsers} className="debug-refresh">
+          Обновить пользователей
+        </button>
       </div>
+
+      {showDebug && (
+        <div className="debug-info">
+          <details open>
+            <summary>🔧 Отладочная информация</summary>
+            <div className="debug-content">
+              <div className="debug-section">
+                <h3>Логи системы:</h3>
+                <div className="debug-logs">
+                  {debugLogs.length === 0 ? (
+                    <p>Нет логов</p>
+                  ) : (
+                    debugLogs.map((log, index) => (
+                      <div key={index} className="debug-log-line">
+                        {log}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="debug-section">
+                <h3>Telegram WebApp данные:</h3>
+                <pre>
+                  {JSON.stringify(
+                    {
+                      initDataUnsafe: initData,
+                      hasTelegram: !!tg,
+                      version: tg?.version,
+                      platform: tg?.platform,
+                      themeParams: tg?.themeParams,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+
+              <div className="debug-section">
+                <h3>URL параметры:</h3>
+                <pre>
+                  {JSON.stringify(
+                    Object.fromEntries(
+                      new URLSearchParams(window.location.search).entries()
+                    ),
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+
+              <div className="debug-section">
+                <h3>Информация о пользователе:</h3>
+                <pre>
+                  {JSON.stringify(
+                    {
+                      userIdFromState: userId,
+                      userIdFromInitData: initData.user?.id,
+                      userName: initData.user?.first_name,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+
+              <div className="debug-section">
+                <h3>Backend информация:</h3>
+                <pre>
+                  {JSON.stringify(
+                    {
+                      backendURL: backendURL,
+                      canSend: !!(userId || initData.user?.id),
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,13 +5,31 @@ export type ClientConfig = {
   user_id?: number;
 };
 
+// Глобальная переменная для callback логирования
+let debugLogCallback: ((message: string) => void) | null = null;
+
+export function setDebugLogCallback(callback: (message: string) => void) {
+  debugLogCallback = callback;
+}
+
+function addDebugLog(message: string) {
+  const timestamp = new Date().toLocaleTimeString();
+  const logMessage = `[${timestamp}] ${message}`;
+
+  if (debugLogCallback) {
+    debugLogCallback(logMessage);
+  } else {
+    console.log(logMessage);
+  }
+}
+
 export function decodeStartParam(value?: string | null): ClientConfig {
   if (!value) {
-    console.warn("⚠️ No start_param provided");
+    addDebugLog("⚠️ No start_param provided");
     return {};
   }
 
-  console.log("🔍 Raw start_param value:", value);
+  addDebugLog(`🔍 Raw start_param value: ${value}`);
 
   try {
     // Пробуем декодировать base64 (Web Safe Base64)
@@ -22,16 +40,16 @@ export function decodeStartParam(value?: string | null): ClientConfig {
     const padding = base64.length % 4;
     const paddedBase64 = padding ? base64 + "=".repeat(4 - padding) : base64;
 
-    console.log("🔍 Base64 after fixing:", paddedBase64);
+    addDebugLog(`🔍 Base64 after fixing: ${paddedBase64}`);
 
     // Декодируем base64
     const decodedString = atob(paddedBase64);
-    console.log("🔍 Decoded string:", decodedString);
+    addDebugLog(`🔍 Decoded string: ${decodedString}`);
 
     try {
       // Пробуем распарсить как JSON
       const parsed = JSON.parse(decodedString);
-      console.log("🔍 Parsed JSON:", parsed);
+      addDebugLog(`🔍 Parsed JSON: ${JSON.stringify(parsed)}`);
 
       const config: ClientConfig = {};
 
@@ -51,10 +69,10 @@ export function decodeStartParam(value?: string | null): ClientConfig {
         config.user_id = parsed.u;
       }
 
-      console.log("🔍 Final config:", config);
+      addDebugLog(`🔍 Final config: ${JSON.stringify(config)}`);
       return config;
     } catch (jsonError) {
-      console.log("🔍 Not JSON, treating as plain URL:", decodedString);
+      addDebugLog(`🔍 Not JSON, treating as plain URL: ${decodedString}`);
       // Если не JSON, считаем что это просто URL
       if (decodedString.startsWith("http")) {
         return { backend: decodedString };
@@ -62,7 +80,7 @@ export function decodeStartParam(value?: string | null): ClientConfig {
       return {};
     }
   } catch (error) {
-    console.error("❌ Failed to decode start_param:", error);
+    addDebugLog(`❌ Failed to decode start_param: ${error}`);
     return {};
   }
 }
@@ -77,29 +95,31 @@ export function getBackendURL(): string {
   );
   const startParam = startParamFromTG || startParamFromURL;
 
-  console.log("🔍 Start param sources:", {
-    fromTG: startParamFromTG,
-    fromURL: startParamFromURL,
-    using: startParam,
-  });
+  addDebugLog(
+    `🔍 Start param sources: ${JSON.stringify({
+      fromTG: startParamFromTG,
+      fromURL: startParamFromURL,
+      using: startParam,
+    })}`
+  );
 
   if (startParam) {
     const config = decodeStartParam(startParam);
-    console.log("🔍 Config from decodeStartParam:", config);
+    addDebugLog(`🔍 Config from decodeStartParam: ${JSON.stringify(config)}`);
 
     if (config.backend) {
-      console.log("🔧 Using backend from start_param:", config.backend);
+      addDebugLog(`🔧 Using backend from start_param: ${config.backend}`);
       return config.backend;
     }
   }
 
   // Fallback для разработки
   const fallback = "http://localhost:8080";
-  console.log("⚠️ Using fallback backend URL:", fallback);
+  addDebugLog(`⚠️ Using fallback backend URL: ${fallback}`);
   return fallback;
 }
 
-export function getUserFromStartParam() {
+export function getUserFromStartParam(): number | null {
   const tg = (window as any).Telegram?.WebApp;
   const startParamFromTG = tg?.initDataUnsafe?.start_param;
   const startParamFromURL = new URLSearchParams(window.location.search).get(
@@ -107,16 +127,21 @@ export function getUserFromStartParam() {
   );
   const startParam = startParamFromTG || startParamFromURL;
 
-  if (!startParam) return null;
+  if (!startParam) {
+    addDebugLog("⚠️ No start_param found for user ID extraction");
+    return null;
+  }
 
   const config = decodeStartParam(startParam);
-  return config.user_id || null;
+  const userId = config.user_id || null;
+  addDebugLog(`🔍 Extracted user_id from start_param: ${userId}`);
+  return userId;
 }
 
 export async function sendMessage(text: string, userId: number) {
   const url = `${getBackendURL()}/api/message`;
-  console.log("🚀 Sending message to:", url);
-  console.log("📤 Payload:", { text, user_id: userId });
+  addDebugLog(`🚀 Sending message to: ${url}`);
+  addDebugLog(`📤 Payload: ${JSON.stringify({ text, user_id: userId })}`);
 
   try {
     const res = await axios.post(
@@ -129,35 +154,53 @@ export async function sendMessage(text: string, userId: number) {
         timeout: 10000,
       }
     );
-    console.log("✅ Server response:", res.data);
+    addDebugLog(`✅ Server response: ${JSON.stringify(res.data)}`);
     return res.data;
   } catch (e: any) {
-    console.error("❌ Failed to send message", e);
+    addDebugLog(`❌ Failed to send message: ${e.message}`);
     if (e.response) {
-      console.error("❌ Server error response:", e.response.data);
-      console.error("❌ Server status:", e.response.status);
+      addDebugLog(
+        `❌ Server error response: ${JSON.stringify(e.response.data)}`
+      );
+      addDebugLog(`❌ Server status: ${e.response.status}`);
     }
     throw new Error(e.response?.data?.message || e.message || "Network error");
   }
 }
 
-export async function getUsers() {
+export async function getUsers(): Promise<any[]> {
   const url = `${getBackendURL()}/api/users`;
-  console.log("📥 Fetching users from:", url);
+  addDebugLog(`📥 Fetching users from: ${url}`);
 
   try {
     const res = await axios.get(url, { timeout: 10000 });
-    console.log("✅ Users fetched:", res.data.length);
-    return res.data;
-  } catch (e) {
-    console.error("❌ Failed to fetch users", e);
-    if (axios.isAxiosError(e)) {
-      console.error("❌ Axios error details:", {
-        message: e.message,
-        code: e.code,
-        response: e.response?.data,
-        status: e.response?.status,
+    const users = res.data || [];
+    addDebugLog(`✅ Users fetched: ${users.length} users`);
+
+    if (users.length === 0) {
+      addDebugLog("ℹ️ No users found in database");
+    } else {
+      users.forEach((user: any, index: number) => {
+        addDebugLog(
+          `👤 User ${index + 1}: ID=${user.id}, Username=${
+            user.username
+          }, FirstName=${user.first_name}`
+        );
       });
+    }
+
+    return users;
+  } catch (e: any) {
+    addDebugLog(`❌ Failed to fetch users: ${e.message}`);
+    if (axios.isAxiosError(e)) {
+      addDebugLog(
+        `❌ Axios error details: ${JSON.stringify({
+          message: e.message,
+          code: e.code,
+          response: e.response?.data,
+          status: e.response?.status,
+        })}`
+      );
     }
     return [];
   }
